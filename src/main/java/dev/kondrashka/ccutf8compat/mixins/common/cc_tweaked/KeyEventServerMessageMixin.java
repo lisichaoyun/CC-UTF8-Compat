@@ -25,7 +25,7 @@ public class KeyEventServerMessageMixin {
 
     @Shadow
     @Final
-    private KeyEventServerMessage.Action type;
+    private KeyEventServerMessage.Action action;
 
     @Shadow
     @Final
@@ -37,7 +37,7 @@ public class KeyEventServerMessageMixin {
             return;
         }
 
-        if (type != KeyEventServerMessage.Action.CHAR || key <= 255) {
+        if (action != KeyEventServerMessage.Action.CHAR || key <= 255) {
             return;
         }
 

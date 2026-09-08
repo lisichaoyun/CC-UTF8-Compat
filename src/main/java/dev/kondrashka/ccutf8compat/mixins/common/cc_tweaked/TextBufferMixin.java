@@ -1,6 +1,9 @@
 package dev.kondrashka.ccutf8compat.mixins.common.cc_tweaked;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -69,7 +72,7 @@ public class TextBufferMixin implements CcUtf8TextBufferAccess {
     @Unique
     private void ccUtf8$writeCodepoints(String value, int start) {
         var codepoints = ccUtf8$getCodepoints();
-        var source = value.codePoints().toArray();
+        var source = ccUtf8$coerceCodepoints(value);
 
         var pos = start;
         start = Math.max(start, 0);
@@ -82,6 +85,50 @@ public class TextBufferMixin implements CcUtf8TextBufferAccess {
 
             codepoints[i] = codepoint;
             ccUtf8$setFallbackChar(i, codepoint);
+        }
+    }
+
+    /**
+     * Defensive UTF-8 decoder: if the incoming String looks like Latin-1
+     * (every char fits in a single byte) it might actually be UTF-8 bytes
+     * that Cobalt's LuaString decoded byte-by-byte. Try to decode and use
+     * that result when valid.
+     */
+    @Unique
+    private static int[] ccUtf8$coerceCodepoints(String value) {
+        var raw = value.codePoints().toArray();
+
+        if (raw.length < 2) {
+            return raw;
+        }
+
+        var allLatin1 = true;
+        for (var cp : raw) {
+            if (cp > 255) {
+                allLatin1 = false;
+                break;
+            }
+        }
+
+        if (!allLatin1) {
+            return raw;
+        }
+
+        var bytes = new byte[raw.length];
+        for (var i = 0; i < raw.length; i++) {
+            bytes[i] = (byte) raw[i];
+        }
+
+        try {
+            var decoded = StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
+            return decoded.codePoints().toArray();
+        } catch (CharacterCodingException ignored) {
+            return raw;
         }
     }
 

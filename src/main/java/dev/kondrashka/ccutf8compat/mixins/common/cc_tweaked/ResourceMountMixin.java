@@ -3,7 +3,6 @@ package dev.kondrashka.ccutf8compat.mixins.common.cc_tweaked;
 import java.io.IOException;
 import java.io.InputStream;
 
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -30,11 +29,9 @@ import dev.kondrashka.ccutf8compat.config.CcUtf8CompatConfig;
 public class ResourceMountMixin {
 
     @Shadow
-    @Final
     private String namespace;
 
     @Shadow
-    @Final
     private String subPath;
 
     @Shadow

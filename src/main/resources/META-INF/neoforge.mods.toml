@@ -13,9 +13,9 @@ authors="${mod_authors}"
 description='''${mod_description}'''
 
 [[dependencies.${mod_id}]]
-modId="forge"
+modId="neoforge"
 mandatory=true
-versionRange="${forge_version_range}"
+versionRange="${neo_version_range}"
 ordering="NONE"
 side="BOTH"
 
@@ -29,6 +29,6 @@ side="BOTH"
 [[dependencies.${mod_id}]]
 modId="computercraft"
 mandatory=true
-versionRange="[1.116.1,1.117.0)"
+versionRange="[1.21.1-forge-1.120.2,)"
 ordering="AFTER"
 side="BOTH"

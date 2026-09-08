@@ -7,10 +7,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import io.netty.buffer.Unpooled;
-
-import net.minecraft.network.FriendlyByteBuf;
-
 import dan200.computercraft.core.terminal.Palette;
 import dan200.computercraft.core.terminal.Terminal;
 import dan200.computercraft.core.util.Colour;
@@ -23,6 +19,14 @@ import dev.kondrashka.ccutf8compat.access.CcUtf8TextBufferAccess;
 
 /**
  * Synchronizes UTF-8 terminal data through CC:Tweaked's networked terminal updates.
+ * <p>
+ * The original {@link NetworkedTerminal#write()} creates a vanilla {@link TerminalState};
+ * we use {@code @Inject} at RETURN to grab that freshly constructed state and attach
+ * UTF-8 codepoint sidecar data via {@link CcUtf8TerminalStateAccess}. The actual byte
+ * serialisation is handled by {@code TerminalStateMixin#write} at TAIL.
+ * <p>
+ * Sidecar data is stored directly on the returned TerminalState instance (no static
+ * bridge), so concurrent writes on different terminals cannot interfere.
  */
 
 @Mixin(value = NetworkedTerminal.class, remap = false)
@@ -31,58 +35,14 @@ public class NetworkedTerminalMixin {
     @Unique
     private static final String ccUtf8$BASE_16 = "0123456789abcdef";
 
-    @Unique
-    private TerminalState ccUtf8$createVanillaState(NetworkedTerminal terminal, byte[] contents) {
-        var buf = new FriendlyByteBuf(Unpooled.buffer());
-
-        buf.writeBoolean(terminal.isColour());
-        buf.writeVarInt(terminal.getWidth());
-        buf.writeVarInt(terminal.getHeight());
-        buf.writeVarInt(terminal.getCursorX());
-        buf.writeVarInt(terminal.getCursorY());
-        buf.writeBoolean(terminal.getCursorBlink());
-        buf.writeByte(terminal.getBackgroundColour() << 4 | terminal.getTextColour());
-        buf.writeByteArray(contents);
-
-        return new TerminalState(buf);
-    }
-
-    @Unique
-    private byte[] ccUtf8$createVanillaContents(NetworkedTerminal terminal) {
-        var width = terminal.getWidth();
-        var height = terminal.getHeight();
-        var palette = terminal.getPalette();
-
-        var contents = new byte[width * height * 2 + Palette.PALETTE_SIZE * 3];
-        var idx = 0;
-
-        for (var y = 0; y < height; y++) {
-            var textLine = terminal.getLine(y);
-            var textColourLine = terminal.getTextColourLine(y);
-            var backColourLine = terminal.getBackgroundColourLine(y);
-
-            for (var x = 0; x < width; x++) {
-                contents[idx++] = (byte) (textLine.charAt(x) & 0xFF);
-            }
-
-            for (var x = 0; x < width; x++) {
-                contents[idx++] = (byte) (Terminal.getColour(backColourLine.charAt(x), Colour.BLACK) << 4 |
-                        Terminal.getColour(textColourLine.charAt(x), Colour.WHITE));
-            }
-        }
-
-        for (var i = 0; i < Palette.PALETTE_SIZE; i++) {
-            for (var channel : palette.getColour(i)) {
-                contents[idx++] = (byte) ((int) (channel * 0xFF) & 0xFF);
-            }
-        }
-
-        return contents;
-    }
-
-    @Inject(method = "write", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "write", at = @At("RETURN"), remap = false)
     private void ccUtf8$writeUtf8State(CallbackInfoReturnable<TerminalState> cir) {
         if (!CcUtf8CompatConfig.ENABLE_CC_UTF8_COMPAT.get()) {
+            return;
+        }
+
+        var state = cir.getReturnValue();
+        if (state == null) {
             return;
         }
 
@@ -122,13 +82,10 @@ public class NetworkedTerminalMixin {
             }
         }
 
-        var state = ccUtf8$createVanillaState(terminal, ccUtf8$createVanillaContents(terminal));
         ((CcUtf8TerminalStateAccess) state).ccUtf8$setUtf8Data(textContents, colours, paletteBytes);
-
-        cir.setReturnValue(state);
     }
 
-    @Inject(method = "read", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "read", at = @At("TAIL"), remap = false)
     private void ccUtf8$readUtf8State(TerminalState state, CallbackInfo ci) {
         if (!CcUtf8CompatConfig.ENABLE_CC_UTF8_COMPAT.get()) {
             return;
@@ -143,14 +100,7 @@ public class NetworkedTerminalMixin {
             return;
         }
 
-        var access = (TerminalStateAccessor) (Object) state;
         var terminal = (NetworkedTerminal) (Object) this;
-
-        terminal.resize(access.ccUtf8$getWidth(), access.ccUtf8$getHeight());
-        terminal.setCursorPos(access.ccUtf8$getCursorX(), access.ccUtf8$getCursorY());
-        terminal.setCursorBlink(access.ccUtf8$getCursorBlink());
-        terminal.setBackgroundColour(access.ccUtf8$getCursorBgColour());
-        terminal.setTextColour(access.ccUtf8$getCursorFgColour());
 
         var width = terminal.getWidth();
         var height = terminal.getHeight();
@@ -187,8 +137,5 @@ public class NetworkedTerminalMixin {
 
             palette.setColour(i, r, g, b);
         }
-
-        terminal.setChanged();
-        ci.cancel();
     }
 }

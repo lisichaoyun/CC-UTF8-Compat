@@ -28,7 +28,7 @@ import dev.kondrashka.ccutf8compat.access.CcUtf8TextBufferAccess;
 public abstract class TermMethodsMixin {
 
     @Shadow
-    protected abstract Terminal getTerminal();
+    public abstract Terminal getTerminal() throws LuaException;
 
     @Unique
     private static String ccUtf8$decodeUtf8OrLegacy(String text) {

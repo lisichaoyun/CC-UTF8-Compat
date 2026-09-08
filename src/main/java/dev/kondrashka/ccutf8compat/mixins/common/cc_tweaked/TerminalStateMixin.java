@@ -5,7 +5,6 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.network.FriendlyByteBuf;
 
@@ -16,6 +15,22 @@ import dev.kondrashka.ccutf8compat.access.CcUtf8TerminalStateAccess;
 
 /**
  * Saves and restores UTF-8 terminal data in terminal state packets.
+ * <p>
+ * Wire format on top of vanilla {@code TerminalState}:
+ * <pre>
+ *   [vanilla TerminalState bytes]
+ *   [int ccUtf8$UTF8_MARKER = 0x54464755]   -- "UGFT" little-endian
+ *   [varint text length]
+ *   [varint codepoint] * text length
+ *   [byte[] colours]
+ *   [byte[] palette]
+ * </pre>
+ * <p>
+ * The marker lets us detect whether a {@code TerminalState} carries our UTF-8
+ * sidecar; vanilla terminals will simply skip it.
+ * <p>
+ * The sidecar lives directly on the {@code TerminalState} instance (no static
+ * bridge) so concurrent writes on different terminals can't stomp each other.
  */
 
 @Mixin(value = TerminalState.class, remap = false)
@@ -68,32 +83,23 @@ public class TerminalStateMixin implements CcUtf8TerminalStateAccess {
             return;
         }
 
-        if (ccUtf8$utf8Text == null || ccUtf8$utf8Colours == null || ccUtf8$utf8Palette == null) {
+        var codepoints = ccUtf8$utf8Text;
+        var colours = ccUtf8$utf8Colours;
+        var palette = ccUtf8$utf8Palette;
+
+        if (codepoints == null || colours == null || palette == null) {
             return;
         }
 
         buf.writeInt(ccUtf8$UTF8_MARKER);
 
-        buf.writeVarInt(ccUtf8$utf8Text.length);
-        for (var codepoint : ccUtf8$utf8Text) {
+        buf.writeVarInt(codepoints.length);
+        for (var codepoint : codepoints) {
             buf.writeVarInt(codepoint);
         }
 
-        buf.writeByteArray(ccUtf8$utf8Colours);
-        buf.writeByteArray(ccUtf8$utf8Palette);
-    }
-
-    @Inject(method = "size", at = @At("RETURN"), cancellable = true, remap = false)
-    private void ccUtf8$size(CallbackInfoReturnable<Integer> cir) {
-        if (!CcUtf8CompatConfig.ENABLE_CC_UTF8_COMPAT.get()) {
-            return;
-        }
-
-        if (ccUtf8$utf8Text == null || ccUtf8$utf8Colours == null || ccUtf8$utf8Palette == null) {
-            return;
-        }
-
-        cir.setReturnValue(cir.getReturnValue() + ccUtf8$utf8Text.length * Integer.BYTES + ccUtf8$utf8Colours.length + ccUtf8$utf8Palette.length + 8);
+        buf.writeByteArray(colours);
+        buf.writeByteArray(palette);
     }
 
     @Override

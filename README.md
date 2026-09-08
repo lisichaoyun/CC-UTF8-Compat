@@ -1,72 +1,72 @@
-# CC UTF-8 Compat
+# CC UTF-8 兼容补丁
 
-CC UTF-8 Compat adds UTF-8 compatibility patches for CC:Tweaked on Minecraft 1.20.1 Forge.
+CC UTF-8 兼容补丁为 Minecraft 1.21.1 NeoForged 上的 CC:Tweaked 添加 UTF-8 兼容性补丁。
 
-The mod improves UTF-8 text handling in CC:Tweaked terminals and related peripherals. It is mainly intended for modpacks or servers that need non-ASCII text support, such as Russian, Chinese, Spanish accents, and other Unicode characters.
+该模组改进了 CC:Tweaked 终端及相关外设中的 UTF-8 文本处理。它主要面向需要非 ASCII 文本支持的整合包或服务器,例如俄语、中文、西班牙语变音符号以及其他 Unicode 字符。
 
-## Features
+## 功能特性
 
-* UTF-8 text rendering in computer terminals
-* UTF-8 input and paste support
-* UTF-8 support for computer labels
-* UTF-8 terminal synchronization between server and client
-* UTF-8 rendering fixes for monitors
-* UTF-8 support for pocket computers
-* UTF-8 support for printers and printed pages
-* Patched CraftOS Lua files for better UTF-8 behavior in selected programs and APIs
+* 计算机终端中的 UTF-8 文本渲染
+* UTF-8 输入与粘贴支持
+* 计算机标签的 UTF-8 支持
+* 服务器与客户端之间的 UTF-8 终端同步
+* 显示器的 UTF-8 渲染修复
+* 掌上电脑的 UTF-8 支持
+* 打印机和打印页面的 UTF-8 支持
+* 为选定的程序和 API 修补了 CraftOS Lua 文件,以获得更好的 UTF-8 行为
 
-## Tested with
+## 测试环境
 
-* Minecraft 1.20.1
-* Forge 47.4.10
-* CC:Tweaked 1.116.1
+* Minecraft 1.21.1
+* NeoForged 21.1.77
+* CC:Tweaked 1.120.2
 
-## Requirements
+## 环境要求
 
-* Minecraft 1.20.1
-* Forge
-* CC:Tweaked 1.116.1
+* Minecraft 1.21.1
+* NeoForged
+* CC:Tweaked 1.120.2
 
-This mod is version-specific and depends on CC:Tweaked internals. Other CC:Tweaked versions are not guaranteed to work.
+该模组是版本特定的,并且依赖于 CC:Tweaked 的内部实现。无法保证其他版本的 CC:Tweaked 能够正常使用。
 
-## Installation
+## 安装方法
 
-Install the mod on both client and server.
+客户端和服务器都需要安装该模组。
 
-Required files:
+所需文件:
 
 ```text
 mods/
-  cc-tweaked-1.20.1-forge-1.116.1.jar
-  cc_utf8_compat-1.0.1-beta.1.jar
+  cc-tweaked-1.21.1-forge-1.120.2.jar
+  cc_utf8_compat-1.1.0.jar
 ```
 
-For singleplayer, place both mods in the client `mods` folder.
+单人模式下,将两个模组都放入客户端的 `mods` 文件夹。
 
-For multiplayer, the compat mod must be installed on both sides.
+多人模式下,兼容性模组必须在客户端和服务端都安装。
 
-## Configuration
+## 配置
 
-After the first launch, the config file will be created:
+首次启动后,会自动生成配置文件:
 
 ```text
 config/cc_utf8_compat-common.toml
 ```
 
-The UTF-8 compatibility layer can be enabled or disabled:
+可以启用或禁用 UTF-8 兼容层:
 
 ```toml
 ccUtf8Compat = true
 ```
 
-Set it to `false` to disable the patches without removing the mod.
+将其设置为 `false` 可以在不卸载模组的情况下禁用补丁。
 
-## Known limitations
+## 已知限制
 
-This mod patches internal CC:Tweaked classes using mixins. Because of that, it is only tested against CC:Tweaked 1.116.1.
+该模组使用 mixin 修补 CC:Tweaked 的内部类。因此,它仅在 CC:Tweaked 1.120.2 上进行了测试。
 
-Newer CC:Tweaked versions may change internal class names, method names, or behavior, which can break compatibility.
+较新版本的 CC:Tweaked 可能会更改内部类名、方法名或行为,这可能会破坏兼容性。
 
-## License
+## 许可证
 
-This project is licensed under the MIT License.
+本项目基于 MIT 许可证发布。

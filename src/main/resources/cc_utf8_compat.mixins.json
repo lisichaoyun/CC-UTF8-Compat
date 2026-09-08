@@ -1,7 +1,7 @@
 {
   "required": true,
   "package": "dev.kondrashka.ccutf8compat.mixins",
-  "compatibilityLevel": "JAVA_17",
+  "compatibilityLevel": "JAVA_21",
   "refmap": "cc_utf8_compat.refmap.json",
   "mixins": [
     "common.cc_tweaked.DiskDrivePeripheralMixin",

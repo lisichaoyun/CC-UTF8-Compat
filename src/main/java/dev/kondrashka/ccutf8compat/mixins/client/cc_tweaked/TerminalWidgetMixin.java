@@ -3,9 +3,6 @@ package dev.kondrashka.ccutf8compat.mixins.client.cc_tweaked;
 import static dan200.computercraft.client.render.text.FixedWidthFontRenderer.FONT_HEIGHT;
 import static dan200.computercraft.client.render.text.FixedWidthFontRenderer.FONT_WIDTH;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -13,21 +10,18 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 
 import dan200.computercraft.client.gui.widgets.TerminalWidget;
 import dan200.computercraft.client.render.text.FixedWidthFontRenderer;
+import dan200.computercraft.core.input.UserComputerInput;
 import dan200.computercraft.core.terminal.Terminal;
 import dan200.computercraft.core.util.Colour;
-import dan200.computercraft.core.util.StringUtil;
-import dan200.computercraft.shared.computer.core.InputHandler;
 
 import dev.kondrashka.ccutf8compat.config.CcUtf8CompatConfig;
 import dev.kondrashka.ccutf8compat.access.CcUtf8TextBufferAccess;
-import dev.kondrashka.ccutf8compat.access.CcUtf8ClientInputAccess;
 
 /**
  * Adds UTF-8 paste handling and Unicode rendering to CC:Tweaked's terminal widget.
@@ -38,7 +32,7 @@ public class TerminalWidgetMixin {
 
     @Shadow
     @Final
-    private InputHandler computer;
+    private UserComputerInput computerInput;
 
     @Shadow
     @Final
@@ -52,7 +46,7 @@ public class TerminalWidgetMixin {
     @Final
     private int innerY;
 
-    @Inject(method = {"renderWidget", "m_87963_"}, at = @At("TAIL"), remap = false)
+    @Inject(method = "renderWidget", at = @At("TAIL"), remap = false)
     private void ccUtf8$renderUnicodeOverlay(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
         if (!CcUtf8CompatConfig.ENABLE_CC_UTF8_COMPAT.get()) {
             return;
@@ -109,15 +103,15 @@ public class TerminalWidgetMixin {
         var paste = ccUtf8$encodePasteUtf8(clipboard);
 
         if (paste.remaining() > 0) {
-            computer.paste(paste);
+            computerInput.paste(paste);
         }
 
         ci.cancel();
     }
 
     @Unique
-    private static ByteBuffer ccUtf8$encodePasteUtf8(String clipboard) {
-        var output = ByteBuffer.allocate(StringUtil.MAX_PASTE_LENGTH);
+    private static java.nio.ByteBuffer ccUtf8$encodePasteUtf8(String clipboard) {
+        var output = java.nio.ByteBuffer.allocate(32640);
         var iterator = clipboard.codePoints().iterator();
 
         while (iterator.hasNext()) {
@@ -127,7 +121,7 @@ public class TerminalWidgetMixin {
                 break;
             }
 
-            var bytes = new String(Character.toChars(codepoint)).getBytes(StandardCharsets.UTF_8);
+            var bytes = new String(Character.toChars(codepoint)).getBytes(java.nio.charset.StandardCharsets.UTF_8);
 
             if (bytes.length > output.remaining()) {
                 break;
@@ -139,26 +133,5 @@ public class TerminalWidgetMixin {
         output.flip();
 
         return output.asReadOnlyBuffer();
-    }
-
-    @Inject(method = {"charTyped", "m_5534_"}, at = @At("HEAD"), cancellable = true, remap = false)
-    private void ccUtf8$charTypedUtf8(char ch, int modifiers, CallbackInfoReturnable<Boolean> cir) {
-        if (!CcUtf8CompatConfig.ENABLE_CC_UTF8_COMPAT.get()) {
-            return;
-        }
-
-        if (ch == 0 || ch == '\r' || ch == '\n') {
-            return;
-        }
-
-        if (ch <= 255) {
-            return;
-        }
-
-        if (computer instanceof CcUtf8ClientInputAccess input) {
-            input.ccUtf8$charTypedCodepoint(ch);
-            cir.setReturnValue(true);
-        }
-
     }
 }
