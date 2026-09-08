@@ -67,12 +67,17 @@ local function request(path, params, extraHeaders)
     params = params or {}
     local headers = { ["User-Agent"] = "CC:Tweaked QQ音乐 GUI" }
     if extraHeaders then for k, v in pairs(extraHeaders) do headers[k] = v end end
-    local response, err = http.get(BASE .. path .. query(params), headers, false)
+
+    local fullUrl = BASE .. path .. query(params)
+    term.setCursorPos(1, term.getCursorPos())
+    write("URL: " .. fullUrl)
+
+    local response, err = http.get(fullUrl, headers, false)
     if not response then error(tostring(err or "HTTP 请求失败"), 0) end
     local body = response.readAll() or ""
     local code = response.getResponseCode and response.getResponseCode() or 200
     response.close()
-    if code < 200 or code >= 300 then error("HTTP " .. tostring(code), 0) end
+    if code < 200 or code >= 300 then error("HTTP " .. tostring(code) .. " body=" .. body:sub(1, 200), 0) end
     local ok, data = pcall(textutils.unserialiseJSON, body)
     if not ok or type(data) ~= "table" then error("响应不是有效的 JSON", 0) end
     if data.result ~= nil and data.result ~= 100 then
@@ -201,7 +206,7 @@ end
 local function apiSearch(key, p)
     local k = "search:" .. key .. ":" .. p
     if dataCache[k] then return dataCache[k] end
-    local resp = request("/search", { key = key, pageNo = tostring(p), pageSize = tostring(PAGE_SIZE), t = "0" })
+    local resp = request("/search", { key = key })
     local x = extractSongs(resp.data); dataCache[k] = x; return x
 end
 
@@ -484,20 +489,58 @@ local function setQQ()
     status = "QQ 号已更新"
 end
 
+-- Decode a string of Latin-1 chars (each char holding one UTF-8 byte value)
+-- back to a UTF-8 string via JSON trick (textutils.unserialiseJSON honours UTF-8).
+local function utf8_decode_from_bytes(byteString)
+    if not byteString or byteString == "" then return "" end
+    local ok, decoded = pcall(textutils.unserialiseJSON, '"' .. tostring(byteString) .. '"')
+    if ok and type(decoded) == "string" then return decoded end
+    return byteString
+end
+
+-- Wait for a paste event. Our mod encodes the clipboard as UTF-8 bytes
+-- before dispatching a "paste" event to the computer, so we can decode it
+-- back to the original chars.
+--   - Copy the search term to the system clipboard (e.g. type in Notepad,
+--     select, Ctrl+C).
+--   - Switch to MC, focus the computer terminal.
+--   - Press Ctrl+V in the terminal — our mod fires a "paste" event.
+--   - This function returns the decoded keyword.
+local function readKeywordViaPaste()
+    term.setCursorBlink(true)
+    while true do
+        local event, p1 = os.pullEvent()
+        if event == "paste" then
+            term.setCursorBlink(false)
+            return utf8_decode_from_bytes(p1)
+        elseif event == "key" and p1 == keys.escape then
+            term.setCursorBlink(false)
+            return nil
+        end
+    end
+end
+
 local function searchInput()
     term.clear(); term.setCursorPos(1, 2)
-    write("搜索关键词: ")
-    local key = read()
-    if key and key ~= "" then
-        lastSearchKey = key; page = 1; dataCache["search:" .. key .. ":1"] = nil
-        status = "加载中..."; draw()
-        local ok, result = pcall(apiSearch, key, page)
-        if not ok then showError(result); return end
-        rows = result or {}; view = "search"
-        pageCount = math.max(1, math.ceil(#rows / PAGE_SIZE))
-        scroll = 0
-        status = #rows > 0 and ("找到 " .. #rows .. " 个结果") or "无结果"
+    write("粘贴搜索关键词 (Ctrl+V 粘贴，Esc 取消): ")
+
+    local key = readKeywordViaPaste()
+    term.setCursorPos(1, 3)
+    if not key or key == "" then
+        write("已取消")
+        sleep(1.2)
+        draw()
+        return
     end
+
+    lastSearchKey = key; page = 1; dataCache["search:" .. key .. ":1"] = nil
+    status = "加载中..."; draw()
+    local ok, result = pcall(apiSearch, key, page)
+    if not ok then showError(result); return end
+    rows = result or {}; view = "search"
+    pageCount = math.max(1, math.ceil(#rows / PAGE_SIZE))
+    scroll = 0
+    status = #rows > 0 and ("找到 " .. #rows .. " 个结果") or "无结果"
 end
 
 local function loadView(kind, extra)
