@@ -122,8 +122,8 @@ public class TextBufferMixin implements CcUtf8TextBufferAccess {
         try {
             var decoded = StandardCharsets.UTF_8
                     .newDecoder()
-                    .onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .onMalformedInput(CodingErrorAction.REPLACE)
+                    .onUnmappableCharacter(CodingErrorAction.REPLACE)
                     .decode(ByteBuffer.wrap(bytes))
                     .toString();
             return decoded.codePoints().toArray();

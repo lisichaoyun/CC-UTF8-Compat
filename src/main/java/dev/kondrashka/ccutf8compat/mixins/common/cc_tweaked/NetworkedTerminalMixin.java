@@ -117,14 +117,18 @@ public class NetworkedTerminalMixin {
             var textAccess = (CcUtf8TextBufferAccess) (Object) textLine;
 
             for (var x = 0; x < width; x++) {
-                textAccess.ccUtf8$setCodePoint(x, textContents[textIdx++]);
+                if (textIdx < textContents.length) {
+                    textAccess.ccUtf8$setCodePoint(x, textContents[textIdx++]);
+                }
             }
 
             for (var x = 0; x < width; x++) {
-                var packedColour = colours[colourIdx++];
+                if (colourIdx < colours.length) {
+                    var packedColour = colours[colourIdx++];
 
-                backColourLine.setChar(x, ccUtf8$BASE_16.charAt((packedColour >> 4) & 0xF));
-                textColourLine.setChar(x, ccUtf8$BASE_16.charAt(packedColour & 0xF));
+                    backColourLine.setChar(x, ccUtf8$BASE_16.charAt((packedColour >> 4) & 0xF));
+                    textColourLine.setChar(x, ccUtf8$BASE_16.charAt(packedColour & 0xF));
+                }
             }
         }
 

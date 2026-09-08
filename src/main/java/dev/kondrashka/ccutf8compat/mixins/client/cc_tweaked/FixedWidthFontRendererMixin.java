@@ -41,7 +41,7 @@ public class FixedWidthFontRendererMixin {
     }
 
     @Shadow
-    private static void quad(QuadEmitter emitter, float x, float y, float x2, float y2, float z, int colour, float u1, float v1, float u2, float v2, int light) {
+    private static void quad(QuadEmitter emitter, float x, float y, float x2, float y2, float z, int colour, float u1, float v1, float v1_2, float v2, int light) {
         throw new AssertionError();
     }
 
@@ -56,37 +56,46 @@ public class FixedWidthFontRendererMixin {
 
     @Overwrite(remap = false)
     public static void drawString(QuadEmitter emitter, float x, float y, TextBuffer text, TextBuffer textColour, Palette palette, int light) {
-        var enabled = CcUtf8CompatConfig.ENABLE_CC_UTF8_COMPAT.get();
-        var textAccess = (CcUtf8TextBufferAccess) (Object) text;
+        try {
+            var enabled = CcUtf8CompatConfig.ENABLE_CC_UTF8_COMPAT.get();
+            var textAccess = (CcUtf8TextBufferAccess) (Object) text;
 
-        for (var i = 0; i < text.length(); i++) {
-            var colour = palette.getRenderColours(getColour(textColour.charAt(i), Colour.BLACK));
-            var codepoint = enabled ? textAccess.ccUtf8$codePointAt(i) : text.charAt(i);
+            var len = Math.min(text.length(), textColour == null ? text.length() : textColour.length());
+            for (var i = 0; i < len; i++) {
+                var colour = palette.getRenderColours(getColour(textColour.charAt(i), Colour.BLACK));
+                var codepoint = enabled ? textAccess.ccUtf8$codePointAt(i) : text.charAt(i);
 
-            if (codepoint > 255) {
-                continue;
+                if (codepoint > 255) {
+                    continue;
+                }
+
+                var index = (char) codepoint;
+                drawChar(emitter, x + i * FONT_WIDTH, y, index, colour, light);
             }
-
-            var index = (char) codepoint;
-            drawChar(emitter, x + i * FONT_WIDTH, y, index, colour, light);
+        } catch (Throwable ignored) {
+            // Suppress render-pipeline IOOBE so a single bad row doesn't crash the GUI.
         }
     }
 
     @Overwrite(remap = false)
     private static void drawChar(QuadEmitter emitter, float x, float y, int index, int colour, int light) {
-        if (index == '\0' || index == ' ') return;
+        try {
+            if (index == '\0' || index == ' ') return;
 
-        var column = index % 16;
-        var row = index / 16;
+            var column = index % 16;
+            var row = index / 16;
 
-        var xStart = 1 + column * (FONT_WIDTH + 2);
-        var yStart = 1 + row * (FONT_HEIGHT + 2);
+            var xStart = 1 + column * (FONT_WIDTH + 2);
+            var yStart = 1 + row * (FONT_HEIGHT + 2);
 
-        quad(
-            emitter, x, y, x + FONT_WIDTH, y + FONT_HEIGHT, 0, colour,
-            xStart / WIDTH, yStart / WIDTH,
-            (xStart + FONT_WIDTH) / WIDTH, (yStart + FONT_HEIGHT) / WIDTH,
-            light
-        );
+            quad(
+                emitter, x, y, x + FONT_WIDTH, y + FONT_HEIGHT, 0, colour,
+                xStart / WIDTH, yStart / WIDTH,
+                (xStart + FONT_WIDTH) / WIDTH, (yStart + FONT_HEIGHT) / WIDTH,
+                light
+            );
+        } catch (Throwable ignored) {
+            // Same reason as drawString.
+        }
     }
 }

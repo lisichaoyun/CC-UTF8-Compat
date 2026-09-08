@@ -57,39 +57,63 @@ public class TerminalWidgetMixin {
 
     @Unique
     private void ccUtf8$renderUnicodeOverlay(GuiGraphics graphics) {
-        var font = Minecraft.getInstance().font;
-        var palette = terminal.getPalette();
+        try {
+            var font = Minecraft.getInstance().font;
+            var palette = terminal.getPalette();
+            var height = terminal.getHeight();
 
-        for (var y = 0; y < terminal.getHeight(); y++) {
-            var textLine = terminal.getLine(y);
-            var textColourLine = terminal.getTextColourLine(y);
-            var backColourLine = terminal.getBackgroundColourLine(y);
-            var textAccess = (CcUtf8TextBufferAccess) (Object) textLine;
+            for (var y = 0; y < height; y++) {
+                var textLine = terminal.getLine(y);
+                var textColourLine = terminal.getTextColourLine(y);
+                var backColourLine = terminal.getBackgroundColourLine(y);
+                var textAccess = (CcUtf8TextBufferAccess) (Object) textLine;
+                var w = textLine.length();
 
-            for (var x = 0; x < textLine.length(); x++) {
-                var codepoint = textAccess.ccUtf8$codePointAt(x);
+                for (var x = 0; x < w; x++) {
+                    int codepoint;
+                    try {
+                        codepoint = textAccess.ccUtf8$codePointAt(x);
+                    } catch (Throwable ignored) {
+                        continue;
+                    }
 
-                if (codepoint >= 0 && codepoint <= 255) {
-                    continue;
+                    if (codepoint >= 0 && codepoint <= 255) {
+                        continue;
+                    }
+
+                    var text = new String(Character.toChars(codepoint));
+                    var drawX = innerX + x * FONT_WIDTH;
+                    var drawY = innerY + y * FONT_HEIGHT;
+
+                    int backgroundColour;
+                    int textColour;
+                    try {
+                        backgroundColour = palette.getRenderColours(
+                                FixedWidthFontRenderer.getColour(backColourLine.charAt(x), Colour.BLACK));
+                        textColour = palette.getRenderColours(
+                                FixedWidthFontRenderer.getColour(textColourLine.charAt(x), Colour.WHITE));
+                    } catch (Throwable ignored) {
+                        continue;
+                    }
+
+                    try {
+                        graphics.fill(drawX, drawY, drawX + FONT_WIDTH, drawY + FONT_HEIGHT, backgroundColour);
+                    } catch (Throwable ignored) {
+                        // skip background fill on failure
+                    }
+
+                    var glyphWidth = font.width(text);
+                    var xOffset = Math.max(0, (FONT_WIDTH - glyphWidth) / 2);
+
+                    try {
+                        graphics.drawString(font, text, drawX + xOffset, drawY, textColour, false);
+                    } catch (Throwable ignored) {
+                        // skip text draw on failure
+                    }
                 }
-
-                var text = new String(Character.toChars(codepoint));
-                var drawX = innerX + x * FONT_WIDTH;
-                var drawY = innerY + y * FONT_HEIGHT;
-
-                var backgroundColour = palette.getRenderColours(
-                        FixedWidthFontRenderer.getColour(backColourLine.charAt(x), Colour.BLACK));
-
-                var textColour = palette.getRenderColours(
-                        FixedWidthFontRenderer.getColour(textColourLine.charAt(x), Colour.WHITE));
-
-                graphics.fill(drawX, drawY, drawX + FONT_WIDTH, drawY + FONT_HEIGHT, backgroundColour);
-
-                var glyphWidth = font.width(text);
-                var xOffset = Math.max(0, (FONT_WIDTH - glyphWidth) / 2);
-
-                graphics.drawString(font, text, drawX + xOffset, drawY, textColour, false);
             }
+        } catch (Throwable ignored) {
+            // Suppress all overlay errors so a bad row doesn't crash the GUI.
         }
     }
 

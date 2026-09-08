@@ -46,8 +46,8 @@ public abstract class TermMethodsMixin {
 
         var decoder = StandardCharsets.UTF_8
                 .newDecoder()
-                .onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT);
+                .onMalformedInput(CodingErrorAction.REPLACE)
+                .onUnmappableCharacter(CodingErrorAction.REPLACE);
 
         try {
             return decoder.decode(ByteBuffer.wrap(bytes)).toString();
@@ -88,8 +88,8 @@ public abstract class TermMethodsMixin {
     private static String ccUtf8$decodeUtf8Bytes(byte[] bytes) {
         var decoder = StandardCharsets.UTF_8
                 .newDecoder()
-                .onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT);
+                .onMalformedInput(CodingErrorAction.REPLACE)
+                .onUnmappableCharacter(CodingErrorAction.REPLACE);
 
         try {
             return decoder.decode(ByteBuffer.wrap(bytes)).toString();
@@ -113,13 +113,24 @@ public abstract class TermMethodsMixin {
 
     @Unique
     private static char ccUtf8$getColour(ByteBuffer buffer, int byteIndex, int charIndex, int byteLength, int charLength) {
-        var position = buffer.position();
+        try {
+            var position = buffer.position();
+            var limit = buffer.limit();
 
-        if (buffer.remaining() == charLength) {
-            return (char) (buffer.get(position + charIndex) & 0xFF);
+            if (buffer.remaining() == charLength) {
+                if (position + charIndex < limit) {
+                    return (char) (buffer.get(position + charIndex) & 0xFF);
+                }
+                return '0';
+            }
+
+            if (position + byteIndex < limit) {
+                return (char) (buffer.get(position + byteIndex) & 0xFF);
+            }
+            return '0';
+        } catch (Throwable ignored) {
+            return '0';
         }
-
-        return (char) (buffer.get(position + byteIndex) & 0xFF);
     }
 
     @Inject(method = "blit", at = @At("HEAD"), cancellable = true, remap = false)
